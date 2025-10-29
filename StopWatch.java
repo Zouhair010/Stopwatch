@@ -38,6 +38,11 @@ public class StopWatch extends JFrame {
 	private static boolean isStarted;
 	// Flag to indicate if the stopwatch is paused
 	private static boolean isPaused;
+	// Holds the current time as a string, used for lap times
+	private static String currentTime;
+	
+	// Stores the elapsed time in milliseconds. Crucial for pausing and resuming.
+	private static long timeDifference = 0;
 
 	/**
 	 * Launch the application.
@@ -48,7 +53,7 @@ public class StopWatch extends JFrame {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					StopWatch1 frame = new StopWatch1();
+					StopWatch frame = new StopWatch();
 					frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -56,49 +61,15 @@ public class StopWatch extends JFrame {
 			}
 		});
 	}
-	/**
-	 * Checks if the given object represents a single digit.
-	 * This method handles String, Character, and Integer types.
-	 * @param obj The object to check.
-	 * @return true if the object is a digit, false otherwise.
-	 */
-	private static boolean isDigit(Object obj){
-        if (obj instanceof String){
-            try{
-                Integer n =  Integer.valueOf(obj.toString());
-                if(n.toString().equals(obj)){
-                    return true;
-                }
-            }
-            catch (NumberFormatException e){
-                return false;
-            }
-        }
-        else if (obj instanceof Character){
-            try{
-                Integer n = Integer.valueOf(obj.toString());
-                Character c = n.toString().toCharArray()[0];
-                if(c.equals(obj)){
-                    return true;
-                }
-            }
-            catch (NumberFormatException e){
-                return false;
-            }
-        }
-        else if (obj instanceof Integer){
-            return true;
-        }
-        return false;
-    }
+
 	/**
 	 * Converts milliseconds into a time format HH:mm:ss.SSS.
-	 * @param milles The duration in milliseconds.
+	 * @param millis The duration in milliseconds.
 	 * @return A string representing the time.
 	 */
-	private static String millesToTime(long milles){
-        long seconds = milles/1000;
-        milles %= 1000;
+	private static String millisToTime(long millis){
+        long seconds = millis/1000;
+        millis %= 1000;
         long minutes = seconds/60;
 	    seconds %= 60;
 	    long hours = minutes/60;
@@ -106,34 +77,7 @@ public class StopWatch extends JFrame {
         String second = (seconds<10) ? "0"+seconds : ""+seconds;
         String minute = (minutes<10) ? "0"+minutes : ""+minutes;
         String hour = (hours<10) ? "0"+hours : ""+hours;
-        return String.format("%s:%s:%s.%s", hour, minute, second, milles);
-	}
-	/**
-	 * Converts a time string in HH:mm:ss.SSS format to milliseconds.
-	 * @param time The time string to convert.
-	 * @return The total time in milliseconds.
-	 */
-	private static long timeToMillis(String time) {
-		if (time.length()==0) {
-			return 0;
-		}
-		long millis;
-		ArrayList<Integer> timeParts = new ArrayList<Integer>();
-		ArrayList<String> part = new ArrayList<String>();
-		// Parse the time string by splitting on non-digit characters.
-		for (char ch : time.toCharArray()) {
-			if (isDigit(ch)) {
-				part.add(""+ch);
-			}
-			else {
-				timeParts.add(Integer.valueOf(String.join("", part)));
-				part = new ArrayList<String>();
-			}
-		}
-		timeParts.add(Integer.valueOf(String.join("", part)));
-		// Calculate total milliseconds from hours, minutes, seconds, and milliseconds.
-		millis = (timeParts.get(0)*3600000)+(timeParts.get(1)*60000)+(timeParts.get(2)*1000)+timeParts.get(3);
-		return millis;
+        return String.format("%s:%s:%s.%s", hour, minute, second, millis);
 	}
 	/**
 	 * Starts or resumes the stopwatch.
@@ -143,21 +87,25 @@ public class StopWatch extends JFrame {
 	private static void start(JTextField textField_screen) throws InterruptedException {
 		isStarted = true;
 		isPaused = false;
-		// Calculate the effective start time by subtracting the already elapsed time.
-		// This allows the timer to resume from where it was paused.
-		long startTimeInMillis = System.currentTimeMillis()-timeToMillis(textField_screen.getText());
-		// Loop as long as the stopwatch is running.
+		// Calculate the effective start time.
+		// If resuming, this subtracts the already elapsed time (timeDifference)
+		// to ensure the timer continues from where it left off.
+		long startTimeInMillis = System.currentTimeMillis()-timeDifference;
+		// Loop as long as the stopwatch is running
 		while (isStarted) {
 			long currentTimeInMillis = System.currentTimeMillis();
-			// Calculate total elapsed time and update the display.
-			textField_screen.setText(millesToTime(currentTimeInMillis-startTimeInMillis));
-			// Pause the thread briefly to prevent high CPU usage and to create a periodic update cycle.
-			Thread.sleep(100); 
+			// Calculate total elapsed time and update the display and helper variables.
+			timeDifference = currentTimeInMillis-startTimeInMillis;
+			textField_screen.setText(millisToTime(timeDifference));
+			currentTime = millisToTime(timeDifference);
+			// Pause the thread for a short duration to prevent high CPU usage
+			// and to create a periodic update cycle.
+			Thread.sleep(100);
 		}
 	}
 	/**
 	 * Pauses the stopwatch.
-	 * @param textField_screen The text field displaying the time (not used here but kept for signature consistency).
+	 * @param textField_screen The text field displaying the time.
 	 */
 	private static void pause(JTextField textField_screen) {
 		// Set flags to stop the timer loop in the start() method.
@@ -169,15 +117,19 @@ public class StopWatch extends JFrame {
 	 * @param textField_screen The text field to reset.
 	 */
 	private static void restart(JTextField textField_screen) {
-		// Reset running flag and the display to its initial state.
+		// Reset all state variables and the display to their initial values.
 		isStarted = false;
+		timeDifference = 0;
+		currentTime = "00:00:00.000";
 		textField_screen.setText("00:00:00.000");
 	}
 
 	/**
 	 * Constructor to create the stopwatch frame and its components.
 	 */
-	public StopWatch1() {
+	public StopWatch() {
+		// --- GUI Setup ---
+		// Frame setup
 		setResizable(false);
 			
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -215,13 +167,13 @@ public class StopWatch extends JFrame {
 		btnStart.setIcon(new ImageIcon("/home/itsme/Desktop/javaStopWatch/1491313953-play_82992.png"));
 		btnStart.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				// Start the stopwatch only if it's not already running.
+				// Start the stopwatch only if it's not already running
 				// This prevents multiple timer threads from being created.
 				if (isStarted==false) {
-					// Create and start a new thread for the stopwatch logic.
+					// Create and start a new thread for the stopwatch logic
 					// This thread will run the start() method.
 					startThread = new Thread(){@Override public void run(){ try {
-						StopWatch1.start(textField_screen);
+						StopWatch.start(textField_screen);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}}};
@@ -238,22 +190,11 @@ public class StopWatch extends JFrame {
 		btnRestart.setIcon(new ImageIcon("/home/itsme/Desktop/javaStopWatch/1491313942-replay_83001.png"));
 		btnRestart.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				// Action is performed only if stopwatch was started or is paused.
-				if (isPaused==true || isStarted==true) {
-					// Clear lap times and reset the display.
+				// Action is performed only if stopwatch was started or is paused
+				if (isPaused || isStarted) {
+					// Clear lap times and reset the display
 					model.clear();
 					restart(textField_screen);
-					// The logic below seems to attempt to manage the thread on restart, but it's complex and may not be necessary.
-					try {
-						startThread.join();
-						startThread = new Thread(){@Override public void run(){ try {
-							StopWatch1.start(textField_screen);
-						} catch (InterruptedException e) {
-							e.printStackTrace();
-						}}};
-					} catch (InterruptedException e1) {
-						e1.printStackTrace();
-					}
 				}
 			}
 		});
@@ -265,8 +206,8 @@ public class StopWatch extends JFrame {
 		btnLap.setIcon(new ImageIcon("/home/itsme/Desktop/javaStopWatch/1491313940-repeat_82991.png"));
 		btnLap.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				// Add the current time from the display to the lap list.
-				model.addElement("   "+textField_screen.getText());
+				// Add the current time from the display to the lap list
+				model.addElement("   " + currentTime);
 			}
 		});
 		btnLap.setBounds(274, 12, 36, 34);
@@ -277,21 +218,9 @@ public class StopWatch extends JFrame {
 		btnPause.setIcon(new ImageIcon("/home/itsme/Desktop/javaStopWatch/1491313935-pause_82989.png"));
 		btnPause.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				// Pause the stopwatch only if it is currently running.
-				if (isStarted==true) {
+				// Pause the stopwatch only if it is currently running
+				if (isStarted) {
 					pause(textField_screen);
-					// This logic seems to try to manage the thread on pause, which is unusual.
-					// Typically, the running thread would just exit its loop.
-					try {
-						startThread.join();
-						startThread = new Thread(){@Override public void run(){ try {
-							StopWatch1.start(textField_screen);
-						} catch (InterruptedException e) {
-							e.printStackTrace();
-						}}};
-					} catch (InterruptedException e1) {
-						e1.printStackTrace();
-					}
 				}
 			}
 		});
@@ -310,7 +239,5 @@ public class StopWatch extends JFrame {
 		list.setForeground(new Color(0, 153, 204));
 		scrollPane.setViewportView(list);
 		list.setBackground(UIManager.getColor("Button.background"));
-		
-		
 	}
 }
